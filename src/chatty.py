@@ -21,7 +21,7 @@ class serverPart(threading.Thread):
         self.socket = socket.socket()
         host = socket.gethostname()
         self.socket.bind((host,chatPort))
-        self.socket.setblocking(True)
+        self.socket.setblocking(False)
         self.socket.listen(8)
 
     def queueMessage(self,message):
@@ -43,12 +43,14 @@ class serverPart(threading.Thread):
             #get new connections
             try:
                 for connection in iter(lambda: self.socket.accept(), ""):
+                    print (connection)
                     if not connection[1] in self.contacts.keys():
+                        connection[0].setblocking(False)
                         print("adding connection to "+str(connection[1]))
                         self.contacts[connection[1]]=connection[0]
             except socket.error:
-                print("well fuck me")
-            
+                pass
+                #print("sockets suck")
             #sending/(recieving & parsing) messages and dropping broken connections
             for connection in self.contacts:
                 try:
@@ -60,10 +62,10 @@ class serverPart(threading.Thread):
                     self.parser.parseMessage(incomingMessage)
                 except socket.error:
                     pass
+                    #print("sockets suck too.")
             #clear list of messages - assume all have been sent
             del self.messageQueue[:]
             
-
 #pipes messages to server, which echoes them to connections
 class clientPart(threading.Thread):
     #socket - socket
@@ -100,7 +102,8 @@ class transformer(threading.Thread):
                          "/self" :self.getIP,
                          "/add":self.parseConnect,
                          "/connect":self.parseConnect,
-                         "/connections":self.displayConnections}
+                         "/connections":self.displayConnections,
+                         "/queue":self.displayQueue}
 
     def parseMessage(self,client,server,message):
         print("parsing "+message)
@@ -108,6 +111,8 @@ class transformer(threading.Thread):
             args = message.split()
             if ( args[0] in self.chatfunctions.keys() and self.chatfunctions[args[0]](client,server,args[1:]) ):
                 server.queueMessage(message)
+            elif (not args[0] in self.chatfunctions.keys()):
+                print(args[0]+" is not a valid command")
             
         except IndexError:
             print("some shit went wrong with the args")            
@@ -149,6 +154,10 @@ class transformer(threading.Thread):
     
     def displayConnections(self,client,server,args):
         print(server.contacts)
+        return False
+    
+    def displayQueue(self,client,server,args):
+        print(server.messageQueue)
         return False
     
 def main():
