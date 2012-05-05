@@ -9,6 +9,7 @@ class serverPart(threading.Thread):
     #self.socket - socket listens
     #self.messageQueue - text IO
     #self.contacts - current connections
+    #self.stop - boolean
     
     def __init__(self,parser):
         super().__init__()
@@ -16,6 +17,7 @@ class serverPart(threading.Thread):
         self.socket=None
         self.messageQueue = []
         self.contacts = {}
+        self.stop = False
 
     def listen(self):
         self.socket = socket.socket()
@@ -23,6 +25,11 @@ class serverPart(threading.Thread):
         self.socket.bind((host,chatPort))
         self.socket.setblocking(False)
         self.socket.listen(8)
+    
+    def close(self):
+        self.socket.close()
+        for key in self.contacts.keys():
+            self.contacts[key].close()
 
     def queueMessage(self,message):
         #sending messages to contacts
@@ -38,8 +45,11 @@ class serverPart(threading.Thread):
             except socket.error:
                 print("failed at make new connection to "+ip)
     
+    def stopThread(self):
+        self.stop=True;
+    
     def run(self):
-        while True:
+        while not self.stop:
             #get new connections
             try:
                 for connection in iter(lambda: self.socket.accept(), ""):
@@ -71,6 +81,7 @@ class clientPart(threading.Thread):
     #socket - socket
     #messages- textIO
     #username - string
+    #stop - boolean
     
     def __init__(self,server,parser,username = "Anonymous"):
         super().__init__()
@@ -79,14 +90,18 @@ class clientPart(threading.Thread):
         self.socket = None
         self.messages = []
         self.username = username
+        self.stop = False
                
     def connectToHost(self,ip):
         s = socket.socket()
         s.connect((ip,chatPort))
         self.socket = s
-       
+    
+    def stopThread(self):
+        self.stop=True;
+    
     def run(self):
-        while True:
+        while not self.stop:
             #get messages, parse them, send them to server
             a = input()
             if(len(a)>=1):
@@ -103,10 +118,12 @@ class transformer(threading.Thread):
                          "/add":self.parseConnect,
                          "/connect":self.parseConnect,
                          "/connections":self.displayConnections,
-                         "/queue":self.displayQueue}
+                         "/queue":self.displayQueue,
+                         "/close":self.parseClose,
+                         "/stop":self.parseClose,
+                         "/quit":self.parseClose}
 
     def parseMessage(self,client,server,message):
-        print("parsing "+message)
         try:
             args = message.split()
             if ( args[0] in self.chatfunctions.keys() and self.chatfunctions[args[0]](client,server,args[1:]) ):
@@ -150,6 +167,13 @@ class transformer(threading.Thread):
     
     def parseConnect(self,client,server,messages):
         server.addConnection(messages[0])
+        return False
+    
+    def parseClose(self,client,server,messages):
+        server.close
+        client.stopThread()
+        server.stopThread()
+        print("quitting...")
         return False
     
     def displayConnections(self,client,server,args):
