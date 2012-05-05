@@ -52,13 +52,13 @@ class serverPart(threading.Thread):
                 pass
                 #print("sockets suck")
             #sending/(recieving & parsing) messages and dropping broken connections
-            for connection in self.contacts:
+            for ip in self.contacts.keys():
                 try:
                     #sending
                     for message in self.messageQueue:
-                        connection.send(message)
+                        self.contacts[connection].send(message)
                     #recieving
-                    incomingMessage = connection.recv(2095)
+                    incomingMessage = self.contacts[connection].recv(2095)
                     self.parser.parseMessage(incomingMessage)
                 except socket.error:
                     pass
