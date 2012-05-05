@@ -66,9 +66,9 @@ class serverPart(threading.Thread):
                 try:
                     #sending
                     for message in self.messageQueue:
-                        self.contacts[connection].send(message)
+                        self.contacts[ip].send(message)
                     #recieving
-                    incomingMessage = self.contacts[connection].recv(2095)
+                    incomingMessage = self.contacts[ip].recv(2095)
                     self.parser.parseMessage(incomingMessage)
                 except socket.error:
                     pass
@@ -133,6 +133,7 @@ class transformer(threading.Thread):
             
         except IndexError:
             print("some shit went wrong with the args")            
+    
     
     #commands
     #take self, client, server, [messages]
