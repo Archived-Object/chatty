@@ -45,6 +45,7 @@ class serverPart(threading.Thread):
             if not ip in self.contacts.keys():
                 try:
                     newConnection.connect((ip,chatPort))
+                    newConnection.setblocking(False)
                     self.contacts[ip]=newConnection
                     print("added connection at "+ip)
                 except socket.error:
@@ -52,6 +53,7 @@ class serverPart(threading.Thread):
             else:
                 print("connection already exists")
         else:
+            newSocks.setblocking(False)
             self.contacts[ip]=newSocks
     
     def stopThread(self):
@@ -59,20 +61,22 @@ class serverPart(threading.Thread):
     
     def run(self):
         while not self.stop:
-            for ip in self.contacts.keys():
-                #sending messages
-                for message in self.messageQueue:
+            
+           #sending messages
+            for message in self.messageQueue:
+                for ip in self.contacts.keys():
                     print("attempting to send message \""+message+" from queue to "+ip)
                     self.contacts[ip].send(bytes(message, 'UTF-8'))
-                #recieving messages
+                self.messageQueue.remove(message)
+            
+            #recieving messages
+            for ip in self.contacts.keys():
                 try:
                     incomingMessage = self.contacts[ip].recv(2095)
                     print(incomingMessage);
                     self.parser.parseMessage(incomingMessage)
                 except socket.error: # if there is no message
                     pass
-            
-            del self.messageQueue[:]
             
             #recieving new peers
             try:
