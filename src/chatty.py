@@ -39,8 +39,8 @@ class serverPart(threading.Thread):
         print("(queueing)<<"+message)
         self.messageQueue.append(message)
     
-    def addConnection(self,ip,socket=None):
-        if(socket==None):
+    def addConnection(self,ip,newSocks=None):
+        if(newSocks==None):
             newConnection = socket.socket()
             if not ip in self.contacts.keys():
                 try:
@@ -52,7 +52,7 @@ class serverPart(threading.Thread):
             else:
                 print("connection already exists")
         else:
-            self.contacts[ip]=socket
+            self.contacts[ip]=newSocks
     
     def stopThread(self):
         self.stop=True;
