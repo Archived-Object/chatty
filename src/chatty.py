@@ -18,6 +18,7 @@ class serverPart(threading.Thread):
         self.messageQueue = []
         self.contacts = {}
         self.stop = False
+        
 
     def listen(self):
         self.socket = socket.socket()
@@ -25,6 +26,8 @@ class serverPart(threading.Thread):
         self.socket.bind((host,chatPort))
         self.socket.setblocking(False)
         self.socket.listen(8)
+
+        print("creating server on "+str(socket.gethostbyname(socket.gethostname()))+", port "+str(chatPort))  
     
     def close(self):
         self.socket.close()
@@ -186,9 +189,12 @@ class transformer(threading.Thread):
         return False
     
 def main():
-    print("###################################")
-    print("#       IT'S CHATTY, BITCHES      #")
-    print("###################################")
+    print("#####################################")
+    print("#       IT'S CHATTY, BITCHES        #")
+    print("# --------------------------------- #")    
+    print("# Untested and unapproved by anyone #")
+    print("#                                   #")
+    print("#####################################")
     
     parser = transformer()
     server = serverPart(parser)
