@@ -24,7 +24,7 @@ class serverPart(threading.Thread):
         self.socket = socket.socket()
         host = socket.gethostname()
         self.socket.bind((host,chatPort))
-        self.socket.settimeout(0)
+        self.socket.setblocking(False)
         self.socket.listen(8)
 
         print("creating server on "+str(socket.gethostbyname(socket.gethostname()))+", port "+str(chatPort))  
@@ -59,39 +59,30 @@ class serverPart(threading.Thread):
     
     def run(self):
         while not self.stop:
-            #get new connections
-            try:
-                for connection in iter(lambda: self.socket.accept(), ""):
-                    print (connection)
-                    if not connection[1] in self.contacts.keys():
-                        connection[0].setblocking(False)
-                        print("adding connection to "+str(connection[1]))
-                        self.contacts[connection[1]]=connection[0]
-            except socket.error:
-                pass
-                #print("sockets suck")
-            #sending/(recieving & parsing) messages and dropping broken connections
             for ip in self.contacts.keys():
                 #sending messages
                 for message in self.messageQueue:
                     print("attempting to send message \""+message+" from queue to "+ip)
-                    self.contacts[ip].send(message)
+                    self.contacts[ip].send(bytes(message, 'UTF-8'))
                 #recieving messages
-                incomingMessage = self.contacts[ip].recv(2095)
-                self.parser.parseMessage(incomingMessage)
+                try:
+                    incomingMessage = self.contacts[ip].recv(2095)
+                    print(incomingMessage);
+                    self.parser.parseMessage(incomingMessage)
+                except socket.error: # if there is no message
+                    pass
             
             del self.messageQueue[:]
             
             #recieving new peers
-            while True:
-                try:
-                    newConnection = self.socket.accept()
-                    print("now recieving connection from "+newConnection[1]+"..")
-                    self.addConnection(newConnection[1],newConnection[0])
-                except socket.error:
-                    break
+            try:
+                for newConnection in iter(lambda: self.socket.accept(), ""):
+                    print("now recieving connection from "+newConnection[1][0]+"..")
+                    print(newConnection)
+                    self.addConnection(newConnection[1][0],newConnection[0])
+            except socket.error: # if there are no new peers
+                pass
             
-            sleep(0.5)
             
 #pipes messages to server, which echoes them to connections
 class clientPart(threading.Thread):
