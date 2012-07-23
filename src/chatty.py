@@ -75,7 +75,7 @@ class serverPart(threading.Thread):
                     self.parser.parseMessage(incomingMessage)
                 except socket.error:
                     pass
-                    #print("sockets suck too.")
+                    print("sockets suck too.")
             #clear list of messages - assume all have been sent
             del self.messageQueue[:]
             
