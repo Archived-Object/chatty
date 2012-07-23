@@ -1,6 +1,6 @@
 import socket
 import threading
-import io
+from time import sleep as sleep
 
 chatPort=1435
 
@@ -24,7 +24,7 @@ class serverPart(threading.Thread):
         self.socket = socket.socket()
         host = socket.gethostname()
         self.socket.bind((host,chatPort))
-        self.socket.setblocking(False)
+        self.socket.settimeout(0)
         self.socket.listen(8)
 
         print("creating server on "+str(socket.gethostbyname(socket.gethostname()))+", port "+str(chatPort))  
@@ -39,14 +39,20 @@ class serverPart(threading.Thread):
         print("(queueing)<<"+message)
         self.messageQueue.append(message)
     
-    def addConnection(self,ip):
-        newConnection = socket.socket()
-        if not ip in self.contacts.keys():
-            try:
-                newConnection.connect((ip,chatPort))
-                self.contacts[ip]=newConnection
-            except socket.error:
-                print("failed at make new connection to "+ip)
+    def addConnection(self,ip,socket=None):
+        if(socket==None):
+            newConnection = socket.socket()
+            if not ip in self.contacts.keys():
+                try:
+                    newConnection.connect((ip,chatPort))
+                    self.contacts[ip]=newConnection
+                    print("added connection at "+ip)
+                except socket.error:
+                    print("failed at make new connection to "+ip)
+            else:
+                print("connection already exists")
+        else:
+            self.contacts[ip]=socket
     
     def stopThread(self):
         self.stop=True;
@@ -66,18 +72,26 @@ class serverPart(threading.Thread):
                 #print("sockets suck")
             #sending/(recieving & parsing) messages and dropping broken connections
             for ip in self.contacts.keys():
-                try:
-                    #sending
-                    for message in self.messageQueue:
-                        self.contacts[ip].send(message)
-                    #recieving
-                    incomingMessage = self.contacts[ip].recv(2095)
-                    self.parser.parseMessage(incomingMessage)
-                except socket.error:
-                    pass
-                    #print("sockets suck too.")
-            #clear list of messages - assume all have been sent
+                #sending messages
+                for message in self.messageQueue:
+                    print("attempting to send message \""+message+" from queue to "+ip)
+                    self.contacts[ip].send(message)
+                #recieving messages
+                incomingMessage = self.contacts[ip].recv(2095)
+                self.parser.parseMessage(incomingMessage)
+            
             del self.messageQueue[:]
+            
+            #recieving new peers
+            while True:
+                try:
+                    newConnection = self.socket.accept()
+                    print("now recieving connection from "+newConnection[1]+"..")
+                    self.addConnection(newConnection[1],newConnection[0])
+                except socket.error:
+                    break
+            
+            sleep(0.5)
             
 #pipes messages to server, which echoes them to connections
 class clientPart(threading.Thread):
@@ -111,20 +125,24 @@ class clientPart(threading.Thread):
                 if(a[0]!="/"):
                     a= "/say "+self.username+" "+a
                 self.parser.parseMessage(self,self.server,a)
+            sleep(0.5)
 
 class transformer(threading.Thread):
     def __init__(self):
-        self.chatfunctions = {"/say" :self.parseSay,
-                         "/me"  :self.parseLocalMe,
-                         "/meF"  :self.parseForeignMe,
-                         "/self" :self.getIP,
-                         "/add":self.parseConnect,
-                         "/connect":self.parseConnect,
-                         "/connections":self.displayConnections,
-                         "/queue":self.displayQueue,
-                         "/close":self.parseClose,
-                         "/stop":self.parseClose,
-                         "/quit":self.parseClose}
+        self.chatfunctions = {
+                         "/say"         :self.parseSay,
+                         "/me"          :self.parseLocalMe,
+                         "/meF"         :self.parseForeignMe,
+                         "/self"        :self.getIP,
+                         "/add"         :self.parseConnect,
+                         "/connect"     :self.parseConnect,
+                         "/connections" :self.displayConnections,
+                         "/peers"       :self.displayConnections,      
+                         "/queue"       :self.displayQueue,
+                         "/close"       :self.parseClose,
+                         "/stop"        :self.parseClose,
+                         "/quit"        :self.parseClose
+                         }
 
     def parseMessage(self,client,server,message):
         try:
@@ -135,8 +153,7 @@ class transformer(threading.Thread):
                 print(args[0]+" is not a valid command")
             
         except IndexError:
-            print("some shit went wrong with the args")            
-    
+            print("some shit went wrong with the args")
     
     #commands
     #take self, client, server, [messages]
@@ -174,14 +191,19 @@ class transformer(threading.Thread):
         return False
     
     def parseClose(self,client,server,messages):
+        print("quitting...")
         server.close
         client.stopThread()
         server.stopThread()
-        print("quitting...")
+        print("now closed.")
         return False
     
     def displayConnections(self,client,server,args):
-        print(server.contacts)
+        if(len(server.contacts)>0):
+            for contact in server.contacts.keys():
+                print(contact+"  "+str(server.contacts[contact]));
+        else:
+            print("Fatty fatty, no connections")
         return False
     
     def displayQueue(self,client,server,args):
@@ -201,7 +223,13 @@ def main():
     client = clientPart(server, parser)
     
     client.start()
-    server.listen()
+    try:
+        server.listen()
+    except socket.error:
+        print("could not bind server. is another instance running?")
+        print("now quitting.")
+        client.stopThread()
+        return
     server.start()
     
     
