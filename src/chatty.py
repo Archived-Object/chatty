@@ -120,7 +120,7 @@ class clientPart(threading.Thread):
                 if(a[0]!="/"):
                     a= "/say "+self.username+" "+a
                 self.parser.parseMessage(self,self.server,a)
-            sleep(0.5)
+        sleep(1.0)
 
 class transformer(threading.Thread):
     def __init__(self):
